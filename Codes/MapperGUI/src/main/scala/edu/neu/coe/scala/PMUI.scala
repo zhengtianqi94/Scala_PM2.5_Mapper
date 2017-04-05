@@ -108,6 +108,7 @@ object PMUI extends SimpleSwingApplication{
     maximumSize = new Dimension(300,30)
   }
 
+  // This is the main function, which replaces the main(Args[String]) function with MainFrame
   def top = new MainFrame{
 
     title = "PM2.5 Mapper"
@@ -197,7 +198,6 @@ object PMUI extends SimpleSwingApplication{
       }
     }
   }
-
 }
 
 
