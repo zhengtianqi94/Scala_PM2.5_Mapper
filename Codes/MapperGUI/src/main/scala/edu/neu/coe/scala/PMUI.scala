@@ -1,6 +1,6 @@
 package edu.neu.coe.scala
 
-// 导入scala.swing下所有的包
+// import all packages under scala.swing
 import java.awt.Dimension
 import java.io.File
 
@@ -112,8 +112,13 @@ object PMUI extends SimpleSwingApplication{
 
     title = "PM2.5 Mapper"
 
+    // Configuration of a new Spark config file and set the starting memory to be used
     val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[2]").set("spark.executor.memory","512m");
+
+    // Declare a new SparkContext
     val sc = new SparkContext(conf)
+
+    // Declare a new sqlContext
     val sqlContext = new SQLContext(sc)
 
     contents = new BoxPanel(Orientation.Vertical){
@@ -179,14 +184,15 @@ object PMUI extends SimpleSwingApplication{
         println("File Location is " + Choose4.text)
         println("File Location is " + Choose5.text)
 
+        // Declare the operation of the sqlContext which here is read
         val df = sqlContext.read
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
           .option("inferSchema", "true") // Automatically infer data types
-          .load("/Users/zheng/Test_2011.csv")
+          .load("/Users/zheng/Test_2011.csv") // File direction should be changed, this should be get from the user specified firection.
 
+        // Test if the file is correctly read in
         val selectedData = df.select("State Name", "City Name")
-
         selectedData.show()
       }
     }
