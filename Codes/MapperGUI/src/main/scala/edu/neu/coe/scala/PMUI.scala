@@ -12,6 +12,8 @@ import scala.swing.event.ButtonClicked
 
 object PMUI extends SimpleSwingApplication{
 
+  var dir = ""
+
   val button = new Button{
     text = "Submit"
   }
@@ -143,6 +145,7 @@ object PMUI extends SimpleSwingApplication{
         val result = fileChooser.showOpenDialog(panel5);
         if (result == FileChooser.Result.Approve) {
           Choose.text = fileChooser.selectedFile.getPath;
+          dir = fileChooser.selectedFile.getPath;
         }
       }
       case ButtonClicked(Choose2) => {
@@ -183,7 +186,7 @@ object PMUI extends SimpleSwingApplication{
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
           .option("inferSchema", "true") // Automatically infer data types
-          .load("/Users/zheng/Test_2011.csv")
+          .load(dir)
 
         val selectedData = df.select("State Name", "City Name")
 
