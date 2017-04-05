@@ -4,6 +4,9 @@ package edu.neu.coe.scala
 import java.awt.Dimension
 import java.io.File
 
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.SQLContext
+
 import scala.swing._
 import scala.swing.event.ButtonClicked
 
@@ -105,11 +108,13 @@ object PMUI extends SimpleSwingApplication{
     maximumSize = new Dimension(300,30)
   }
 
-
-
   def top = new MainFrame{
 
     title = "PM2.5 Mapper"
+
+    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[2]").set("spark.executor.memory","512m");
+    val sc = new SparkContext(conf)
+    val sqlContext = new SQLContext(sc)
 
     contents = new BoxPanel(Orientation.Vertical){
       contents += panel1
@@ -173,9 +178,20 @@ object PMUI extends SimpleSwingApplication{
         println("File Location is " + Choose3.text)
         println("File Location is " + Choose4.text)
         println("File Location is " + Choose5.text)
+
+        val df = sqlContext.read
+          .format("com.databricks.spark.csv")
+          .option("header", "true") // Use first line of all files as header
+          .option("inferSchema", "true") // Automatically infer data types
+          .load("/Users/zheng/Test_2011.csv")
+
+        val selectedData = df.select("State Name", "City Name")
+
+        selectedData.show()
       }
     }
   }
+
 }
 
 
