@@ -12,6 +12,7 @@ import scala.swing.event.ButtonClicked
 
 object PMUI extends SimpleSwingApplication{
 
+  // File direction from the user input filed, use as a variable
   var dir = ""
 
   val button = new Button{
