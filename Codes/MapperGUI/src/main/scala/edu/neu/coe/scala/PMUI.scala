@@ -193,11 +193,7 @@ object PMUI extends SimpleSwingApplication{
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
           .option("inferSchema", "true") // Automatically infer data types
-<<<<<<< HEAD
           .load(dir)
-=======
-          .load("/Users/zheng/Test_2011.csv") // File direction should be changed, this should be get from the user specified firection.
->>>>>>> origin/master
 
         // Test if the file is correctly read in
         val selectedData = df.select("State Name", "City Name")
