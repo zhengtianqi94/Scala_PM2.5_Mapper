@@ -12,7 +12,8 @@ ship/
 target/
 .classpath
 .gitignore
-.idea
+.idea/workspace.xml
+.idea/tasks.xml
 .project
 .readme
 .update-config
