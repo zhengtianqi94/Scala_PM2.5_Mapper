@@ -7,6 +7,7 @@ import java.io.File
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 
+import scala.collection.mutable.ListBuffer
 import scala.swing._
 import scala.swing.event.ButtonClicked
 
@@ -14,7 +15,7 @@ object PMUI extends SimpleSwingApplication{
 
   // File direction from the user input filed, use as a variable
   // Path variable
-  var dir = ""
+  var dir = new ListBuffer[String]()
 
   val button = new Button{
     text = "Submit"
@@ -153,31 +154,35 @@ object PMUI extends SimpleSwingApplication{
         val result = fileChooser.showOpenDialog(panel5);
         if (result == FileChooser.Result.Approve) {
           Choose.text = fileChooser.selectedFile.getPath;
-          dir = fileChooser.selectedFile.getPath;
+          dir.+=(fileChooser.selectedFile.getPath);
         }
       }
       case ButtonClicked(Choose2) => {
         val result = fileChooser.showOpenDialog(panel6);
         if (result == FileChooser.Result.Approve) {
           Choose2.text = fileChooser.selectedFile.getPath;
+          dir.+=(fileChooser.selectedFile.getPath);
         }
       }
       case ButtonClicked(Choose3) => {
         val result = fileChooser.showOpenDialog(panel7);
         if (result == FileChooser.Result.Approve) {
           Choose3.text = fileChooser.selectedFile.getPath;
+          dir.+=(fileChooser.selectedFile.getPath);
         }
       }
       case ButtonClicked(Choose4) => {
         val result = fileChooser.showOpenDialog(panel8);
         if (result == FileChooser.Result.Approve) {
           Choose4.text = fileChooser.selectedFile.getPath;
+          dir.+=(fileChooser.selectedFile.getPath);
         }
       }
       case ButtonClicked(Choose5) => {
         val result = fileChooser.showOpenDialog(panel9);
         if (result == FileChooser.Result.Approve) {
           Choose5.text = fileChooser.selectedFile.getPath;
+          dir.+=(fileChooser.selectedFile.getPath);
         }
       }
       case ButtonClicked(button) => {
@@ -195,7 +200,7 @@ object PMUI extends SimpleSwingApplication{
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
           .option("inferSchema", "true") // Automatically infer data types
-          .load(dir)
+          .load(dir.toList.mkString(","))
 
         // Test if the file is correctly read in
         val selectedData = df.select("State Name", "City Name")
