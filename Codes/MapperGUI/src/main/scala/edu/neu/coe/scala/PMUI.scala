@@ -226,9 +226,15 @@ object PMUI extends SimpleSwingApplication {
 
 
 
+<<<<<<< HEAD
 
         // Test for rdd contents
         //        rows.take(2).foreach(println)
+=======
+        //TODO here we need to form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
+        //TODO this one should be implemented, and after that this RDD can be directly used as training data for macihne learning
+        //Test
+>>>>>>> origin/master
 
       }
     }
