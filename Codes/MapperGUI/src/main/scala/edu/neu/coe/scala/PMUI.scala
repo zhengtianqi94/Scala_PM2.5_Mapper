@@ -199,6 +199,7 @@ object PMUI extends SimpleSwingApplication{
 
         // Test if the file is correctly read in
         val selectedData = df.select("State Name", "City Name")
+        selectedData.write.format("com.databricks.spark.csv").save("../new.csv")
         selectedData.show()
       }
     }
