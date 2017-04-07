@@ -11,5 +11,9 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-swing" % "2.10+",
   "com.databricks" % "spark-csv_2.10" % "1.5.0",
   "org.apache.spark" %% "spark-core" % "1.5.0",
-  "org.apache.spark" %% "spark-sql" % "1.5.0"
+  "org.apache.spark" %% "spark-sql" % "1.5.0",
+  "joda-time" % "joda-time" % "2.9.9",
+  "org.joda" % "joda-convert" % "1.8.1",
+  "com.github.nscala-time" %% "nscala-time" % "1.8.0",
+  "org.apache.spark" % "spark-mllib_2.10" % "1.0.0"
 )

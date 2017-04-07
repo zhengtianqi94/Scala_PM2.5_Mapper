@@ -7,6 +7,8 @@ import java.io.File
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{Row, SQLContext}
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.ListBuffer
 import scala.swing._
@@ -188,13 +190,42 @@ object PMUI extends SimpleSwingApplication {
         //        City Name
 
         // Select required fields from source datafile
+
+        //TODO change local time to number
+        import org.joda.time.Days
+        import org.joda.time.format.DateTimeFormat.{ forPattern => formatFor }
+        val now = DateTime.now
+        val beginDate = (new DateTime).withYear(2011)
+          .withMonthOfYear(1)
+          .withDayOfMonth(1)
+        def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
+        //TODO form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
         val selectedData = df.select("Latitude", "Longitude", "Date Local", "Arithmetic Mean", "State Name", "City Name")
-
-        // Generate the dataframe to RDD structure for further use
-        val rows: RDD[Row] = selectedData.rdd
-
-        //TODO here we need to form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
+        selectedData.show
+        val pattern = "yyyy/MM/dd"
+        val changedData: RDD[Row] = selectedData.map(row => Row(row(3),row(0),row(1), daysTo(DateTime.parse(row.getString(2), DateTimeFormat.forPattern(pattern)))))
+        changedData.collect().foreach(println)
+//        val rows: RDD[Row] = selectedData.rdd
         //TODO this one should be implemented, and after that this RDD can be directly used as training data for macihne learning
+
+        // parse the data
+        import org.apache.spark.mllib.linalg.Vectors
+        import org.apache.spark.mllib.regression.LabeledPoint
+        import org.apache.spark.mllib.regression.LinearRegressionModel
+        import org.apache.spark.mllib.regression.LinearRegressionWithSGD
+        val parsedData = changedData.map { line =>
+          val parts = line.toString().split(',')
+          LabeledPoint(parts(0).toDouble, Vectors.dense(parts(1).toDouble,parts(2).toDouble,parts(3).toDouble))
+        }.cache()
+
+        // Building the model
+        val numIterations = 100
+        val stepSize = 0.00000001
+        val model = LinearRegressionWithSGD.train(parsedData, numIterations, stepSize)
+
+
+
+
 
         // Test for rdd contents
         //        rows.take(2).foreach(println)
