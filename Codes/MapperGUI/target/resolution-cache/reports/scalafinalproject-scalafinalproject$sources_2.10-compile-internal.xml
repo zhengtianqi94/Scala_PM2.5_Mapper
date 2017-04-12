@@ -7,7 +7,7 @@
 		revision="1.0.0"
 		conf="compile-internal"
 		confs="compile, runtime, test, provided, optional, compile-internal, runtime-internal, test-internal, plugin, sources, docs, pom, scala-tool"
-		date="20170407163501"/>
+		date="20170412142235"/>
 	<dependencies>
 		<module organisation="com.github.nscala-time" name="nscala-time_2.10">
 			<revision name="1.8.0" status="release" pubdate="20150204204324" resolver="sbt-chain" artresolver="sbt-chain" homepage="https://github.com/nscala-time/nscala-time" downloaded="false" searched="false" default="false" conf="default, compile, runtime, default(compile), master" position="85">

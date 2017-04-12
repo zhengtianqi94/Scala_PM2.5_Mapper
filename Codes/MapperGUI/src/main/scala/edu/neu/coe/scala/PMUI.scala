@@ -203,7 +203,8 @@ object PMUI extends SimpleSwingApplication {
         val selectedData = df.select("Latitude", "Longitude", "Date Local", "Arithmetic Mean", "State Name", "City Name")
         selectedData.show
         val pattern = "yyyy/MM/dd"
-        val changedData: RDD[Row] = selectedData.map(row => Row(row(3),row(0),row(1), daysTo(DateTime.parse(row.getString(2), DateTimeFormat.forPattern(pattern)))))
+        val changedData: RDD[Row] = selectedData.rdd.map(row => Row(row(3),row(0),row(1), daysTo(DateTime.parse(row.getString(2), DateTimeFormat.forPattern(pattern)))))
+        changedData.collect.foreach(println)
         val preparedData = changedData.map(x => x(0) + "," + x(1) + "," + x(2) + "," + x(3))
 
         //  val rows: RDD[Row] = selectedData.rdd
@@ -222,8 +223,8 @@ object PMUI extends SimpleSwingApplication {
         }.cache()
 
         // Building the model
-        val numIterations = 20
-        val stepSize = 1
+        val numIterations = 100
+        val stepSize = 0.00000001
         val model = LinearRegressionWithSGD.train(parsedData, numIterations, stepSize)
 
         // Evaluate model on training examples and compute training error
