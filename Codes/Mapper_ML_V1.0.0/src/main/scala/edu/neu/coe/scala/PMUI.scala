@@ -24,6 +24,8 @@ object PMUI extends SimpleSwingApplication {
   // Path variable
   var dir = new ListBuffer[String]()
 
+  var cityList = new ListBuffer[String]()
+
   val button = new Button {
     text = "Submit"
   }
@@ -62,6 +64,10 @@ object PMUI extends SimpleSwingApplication {
     contents += label2
     contents += textf2
     maximumSize = new Dimension(300, 30)
+  }
+
+  val paneldropdown = new GridPanel(1, 2) {
+    contents += new ComboBox(cityList)
   }
 
   var fileChooser = new FileChooser(new File("."))
@@ -127,6 +133,7 @@ object PMUI extends SimpleSwingApplication {
     contents = new BoxPanel(Orientation.Vertical) {
       contents += panel1
       contents += panel2
+      contents += paneldropdown
       contents += panel5
       contents += panel6
       contents += panel7
@@ -147,6 +154,18 @@ object PMUI extends SimpleSwingApplication {
     listenTo(Choose4)
     listenTo(Choose5)
 
+    def getCity = {
+      val df = sqlContext.read
+        .format("com.databricks.spark.csv")
+        .option("header", "true") // Use first line of all files as header
+        .option("inferSchema", "true") // Automatically infer data types
+        .load(dir.toList.mkString(","))
+      val cities = df.select("CBSA Name")
+      cities.rdd.distinct().foreach(row => cityList += row(0).toString)
+      cityList.foreach(println)
+      repaint()
+    }
+
     reactions += {
       case ButtonClicked(Choose1) => {
         val result = fileChooser.showOpenDialog(panel5);
@@ -154,6 +173,7 @@ object PMUI extends SimpleSwingApplication {
           Choose1.text = fileChooser.selectedFile.getPath;
           dir.+=(fileChooser.selectedFile.getPath);
         }
+        getCity
       }
       case ButtonClicked(Choose2) => {
         val result = fileChooser.showOpenDialog(panel6);
