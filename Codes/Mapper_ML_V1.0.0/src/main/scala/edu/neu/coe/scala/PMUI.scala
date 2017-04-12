@@ -26,7 +26,7 @@ object PMUI extends SimpleSwingApplication {
 
   var cityList = new ListBuffer[String]()
 
-  val button = new Button {
+  val Submit = new Button {
     text = "Submit"
   }
 
@@ -67,7 +67,8 @@ object PMUI extends SimpleSwingApplication {
   }
 
   val paneldropdown = new GridPanel(1, 2) {
-    contents += new ComboBox(cityList)
+    val city = new ComboBox(cityList)
+    contents += city
   }
 
   var fileChooser = new FileChooser(new File("."))
@@ -139,14 +140,14 @@ object PMUI extends SimpleSwingApplication {
       contents += panel7
       contents += panel8
       contents += panel9
-      contents += button
+      contents += Submit
       contents += Draw
       border = Swing.EmptyBorder(20, 20, 20, 20)
     }
 
     size = new Dimension(400, 400)
 
-    listenTo(button)
+    listenTo(Submit)
     listenTo(Draw)
     listenTo(Choose1)
     listenTo(Choose2)
@@ -204,8 +205,10 @@ object PMUI extends SimpleSwingApplication {
         }
       }
 
-      case ButtonClicked(Draw) => {
+      case ButtonClicked(Submit) => {
         // Declare the operation of the sqlContext which here is read
+
+        val city = paneldropdown.city.item
         val df = sqlContext.read
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
@@ -220,14 +223,13 @@ object PMUI extends SimpleSwingApplication {
         def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
 
         //TODO form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
-        val selectedData = df.select("Latitude", "Longitude", "Date Local", "Arithmetic Mean", "State Name", "City Name")
-        selectedData.show
+        val selectedCity = df.where(df("CBSA Name")===city)
+        val selectedData = selectedCity.select("Date Local", "Arithmetic Mean")
+
         val pattern = "yyyy/MM/dd"
-
-        val changedData: RDD[Row] = selectedData.rdd.map(row => Row(row(3),row(0),row(1),
-          daysTo(DateTime.parse(row.getString(2), DateTimeFormat.forPattern(pattern)))))
-
-        val preparedData = changedData.map(x => x(0) + "," + x(1) + "," + x(2) + "," + x(3))
+        val changedData: RDD[Row] = selectedData.rdd.map(row => Row(row(1), daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
+        changedData.collect.foreach(println)
+        val preparedData = changedData.map(x => x(0) + "," + x(1))
 
         //  val rows: RDD[Row] = selectedData.rdd
         //TODO this one should be implemented, and after that this RDD can be directly used as training data for macihne learning
@@ -236,7 +238,7 @@ object PMUI extends SimpleSwingApplication {
 
         val parsedData = preparedData.map { line =>
           val parts = line.toString().split(',')
-          LabeledPoint(parts(0).toDouble, Vectors.dense(parts(1).toDouble,parts(2).toDouble,parts(3).toDouble))
+          LabeledPoint(parts(0).toDouble, Vectors.dense(0,0,parts(1).toDouble))
         }.cache()
 
         // Building the model
@@ -254,7 +256,16 @@ object PMUI extends SimpleSwingApplication {
 
       }
 
-      case ButtonClicked(button) => {
+      case ButtonClicked(Draw) => {
+
+        val city = paneldropdown.city.item
+        println(city)
+        //get the days
+        val now = DateTime.now
+        val beginDate = (new DateTime).withYear(2011)
+          .withMonthOfYear(1)
+          .withDayOfMonth(1)
+        def daysTo(x: DateTime): Double = Days.daysBetween(beginDate, x).getDays + 1
 
         implicit val server = new writer.Server {
           val credentials = writer.Credentials("zhengtqwanglx", "mwApPLKhhP5okOoQDGNb")
@@ -283,14 +294,22 @@ object PMUI extends SimpleSwingApplication {
         //        City Name
 
         // Select required fields from source datafile
+        val selectedCity = df.where(df("CBSA Name")===city)
+        //days and arithmeticMean
+        val pattern = "yyyy/MM/dd"
+        val dateD = selectedCity.select("Date Local")
+        val arithmeticMean = selectedCity.select("Arithmetic Mean")
+        val days: RDD[Row] = dateD.rdd.map(row => Row(daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
+        days.collect.foreach(println)
+        arithmeticMean.rdd.collect.foreach(println)
 
-        val draw_with_data = df.select("Date Local", "Arithmetic Mean")
+//        val draw_with_data = df.select("Date Local", "Arithmetic Mean")
+//
+//        val Day = draw_with_data.select("Date Local")
+//        val Concentration = draw_with_data.select("Arithmetic Mean")
 
-        val Day = draw_with_data.select("Date Local")
-        val Concentration = draw_with_data.select("Arithmetic Mean")
-
-        val Day_list = Day.rdd.map(r => r(0).asInstanceOf[String]).collect().toVector
-        val Concentration_list = Concentration.rdd.map(r => r(0).asInstanceOf[Double]).collect().toVector
+        val Day_list = days.map(r => r(0).asInstanceOf[Double]).collect().toVector
+        val Concentration_list = arithmeticMean.rdd.map(r => r(0).asInstanceOf[Double]).collect().toVector
 
         val p = Plot().withScatter(Day_list, Concentration_list)
 
