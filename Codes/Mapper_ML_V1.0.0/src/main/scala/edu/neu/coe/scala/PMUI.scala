@@ -123,7 +123,7 @@ object PMUI extends SimpleSwingApplication {
     title = "PM2.5 Mapper"
 
     // Configuration of a new Spark config file and set the starting memory to be used
-    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[2]").set("spark.executor.memory", "512m");
+    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[1]").set("spark.executor.memory", "512m");
 
     // Declare a new SparkContext
     val sc = new SparkContext(conf)
@@ -155,15 +155,17 @@ object PMUI extends SimpleSwingApplication {
     listenTo(Choose4)
     listenTo(Choose5)
 
-    def getCity = {
+    def getCity(path: String) = {
       val df = sqlContext.read
         .format("com.databricks.spark.csv")
         .option("header", "true") // Use first line of all files as header
         .option("inferSchema", "true") // Automatically infer data types
-        .load(dir.toList.mkString(","))
+        .load(path)
       val cities = df.select("CBSA Name")
+
+      //Error: Some CBSA name is null, make a function to get rid of null pointers
       cities.rdd.distinct().foreach(row => cityList += row(0).toString)
-      cityList.foreach(println)
+      //      cityList.foreach(println)
       repaint()
     }
 
@@ -174,7 +176,7 @@ object PMUI extends SimpleSwingApplication {
           Choose1.text = fileChooser.selectedFile.getPath;
           dir.+=(fileChooser.selectedFile.getPath);
         }
-        getCity
+        getCity(fileChooser.selectedFile.getPath)
       }
       case ButtonClicked(Choose2) => {
         val result = fileChooser.showOpenDialog(panel6);
@@ -209,26 +211,43 @@ object PMUI extends SimpleSwingApplication {
         // Declare the operation of the sqlContext which here is read
 
         val city = paneldropdown.city.item
-        val df = sqlContext.read
+
+        val filedir = dir.toList
+
+        var df = sqlContext.read
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
-          .option("inferSchema", "true") // Automatically infer data types
-          .load(dir.toList.mkString(","))
+          .option("inferSchema", "true")
+          .load(filedir.apply(0))
+        for (x <- filedir.drop(1)) {
+          val df_temp = sqlContext.read
+            .format("com.databricks.spark.csv")
+            .option("header", "true") // Use first line of all files as header
+            .option("inferSchema", "true")
+            .load(x)
+          df = df union(df_temp)
+        }
+//        df.show()
+
 
 
         val now = DateTime.now
         val beginDate = (new DateTime).withYear(2011)
           .withMonthOfYear(1)
           .withDayOfMonth(1)
+
         def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
 
         //TODO form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
-        val selectedCity = df.where(df("CBSA Name")===city)
+        val selectedCity = df.where(df("CBSA Name") === city)
+        println(city)
+
         val selectedData = selectedCity.select("Date Local", "Arithmetic Mean")
 
+        //Error: Timestamp cannot be cast to string
         val pattern = "yyyy/MM/dd"
         val changedData: RDD[Row] = selectedData.rdd.map(row => Row(row(1), daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
-        changedData.collect.foreach(println)
+        //        changedData.collect.foreach(println)
         val preparedData = changedData.map(x => x(0) + "," + x(1))
 
         //  val rows: RDD[Row] = selectedData.rdd
@@ -238,20 +257,28 @@ object PMUI extends SimpleSwingApplication {
 
         val parsedData = preparedData.map { line =>
           val parts = line.toString().split(',')
-          LabeledPoint(parts(0).toDouble, Vectors.dense(0,0,parts(1).toDouble))
+          LabeledPoint(parts(0).toDouble, Vectors.dense(parts(1).toDouble))
         }.cache()
 
         // Building the model
-        val numIterations = 200
+        val numIterations = 300
         val stepSize = 0.00000001
         val model = LinearRegressionWithSGD.train(parsedData, numIterations, stepSize)
+
+        val dateD = selectedCity.select("Date Local")
+        val days: RDD[Row] = dateD.rdd.map(row => Row(daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
+        //        val Day_list = days.map(r => r(0).asInstanceOf[Double]).collect().toVector
+
+        //Convert RDD[Row] to RDD[Vector]
+        val prediction = model.predict(days.map { row => Vectors.dense(row.getAs[Integer](0).toDouble)})
+        prediction.take(20).foreach(println)
 
         // Evaluate model on training examples and compute training error
         val valuesAndPreds = parsedData.map { point =>
           val prediction = model.predict(point.features)
           (point.label, prediction)
         }
-        val MSE = valuesAndPreds.map{ case(v, p) => math.pow((v - p), 2) }.mean()
+        val MSE = valuesAndPreds.map { case (v, p) => math.pow((v - p), 2) }.mean()
         println("training Mean Squared Error = " + MSE)
 
       }
@@ -265,6 +292,7 @@ object PMUI extends SimpleSwingApplication {
         val beginDate = (new DateTime).withYear(2011)
           .withMonthOfYear(1)
           .withDayOfMonth(1)
+
         def daysTo(x: DateTime): Double = Days.daysBetween(beginDate, x).getDays + 1
 
         implicit val server = new writer.Server {
@@ -280,11 +308,21 @@ object PMUI extends SimpleSwingApplication {
           .getOrCreate()
 
         // Declare the operation of the sqlContext which here is read
-        val df = sqlContext.read
+        val filedir = dir.toList
+
+        var df = sqlContext.read
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
-          .option("inferSchema", "true") // Automatically infer data types
-          .load(dir.toList.mkString(","))
+          .option("inferSchema", "true")
+          .load(filedir.apply(0))
+        for (x <- filedir.drop(1)) {
+          val df_temp = sqlContext.read
+            .format("com.databricks.spark.csv")
+            .option("header", "true") // Use first line of all files as header
+            .option("inferSchema", "true")
+            .load(x)
+          df = df union(df_temp)
+        }
 
         //        Latitude
         //        Longitude
@@ -294,7 +332,7 @@ object PMUI extends SimpleSwingApplication {
         //        City Name
 
         // Select required fields from source datafile
-        val selectedCity = df.where(df("CBSA Name")===city)
+        val selectedCity = df.where(df("CBSA Name") === city)
         //days and arithmeticMean
         val pattern = "yyyy/MM/dd"
         val dateD = selectedCity.select("Date Local")
@@ -303,10 +341,10 @@ object PMUI extends SimpleSwingApplication {
         days.collect.foreach(println)
         arithmeticMean.rdd.collect.foreach(println)
 
-//        val draw_with_data = df.select("Date Local", "Arithmetic Mean")
-//
-//        val Day = draw_with_data.select("Date Local")
-//        val Concentration = draw_with_data.select("Arithmetic Mean")
+        //        val draw_with_data = df.select("Date Local", "Arithmetic Mean")
+        //
+        //        val Day = draw_with_data.select("Date Local")
+        //        val Concentration = draw_with_data.select("Arithmetic Mean")
 
         val Day_list = days.map(r => r(0).asInstanceOf[Double]).collect().toVector
         val Concentration_list = arithmeticMean.rdd.map(r => r(0).asInstanceOf[Double]).collect().toVector
