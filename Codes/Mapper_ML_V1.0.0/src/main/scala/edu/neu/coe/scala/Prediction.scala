@@ -16,6 +16,37 @@ import scala.collection.mutable.ListBuffer
 case class Prediction(city: String, dir: ListBuffer[String], numIterations: Int, stepSize: Double)
 
 object Prediction {
+
+  var meanSquaredError= ""
+
+  var rootMeanSquaredError = ""
+
+  var meanAbsoluteError = ""
+
+  var r2 = ""
+
+  var explainedVariance = ""
+
+  def getmeanSquaredError(): String ={
+    meanSquaredError
+  }
+
+  def getrootMeanSquaredError():String={
+    rootMeanSquaredError
+  }
+
+  def getmeanAbsoluteError(): String = {
+    meanAbsoluteError
+  }
+
+  def getr2(): String = {
+    r2
+  }
+
+  def getexplainedVariance(): String = {
+    explainedVariance
+  }
+
   def apply(city: String, dir: ListBuffer[String], numIterations: Int, stepSize: Double, sqlContext: SQLContext): RDD[Double] = {
 
     val filedir = dir.toList
@@ -115,17 +146,17 @@ object Prediction {
     val metrics = new RegressionMetrics(valuesAndPreds)
 
     // Squared error
-    println(s"MSE = ${metrics.meanSquaredError}")
-    println(s"RMSE = ${metrics.rootMeanSquaredError}")
+    meanSquaredError = s"MSE = ${metrics.meanSquaredError}"
+    rootMeanSquaredError = s"RMSE = ${metrics.rootMeanSquaredError}"
 
     // R-squared
-    println(s"R-squared = ${metrics.r2}")
+    r2 = "R-squared = ${metrics.r2}"
 
     // Mean absolute error
-    println(s"MAE = ${metrics.meanAbsoluteError}")
+    meanAbsoluteError = s"MAE = ${metrics.meanAbsoluteError}"
 
     // Explained variance
-    println(s"Explained variance = ${metrics.explainedVariance}")
+    explainedVariance = s"Explained variance = ${metrics.explainedVariance}"
 
     predictionvalues
   }
