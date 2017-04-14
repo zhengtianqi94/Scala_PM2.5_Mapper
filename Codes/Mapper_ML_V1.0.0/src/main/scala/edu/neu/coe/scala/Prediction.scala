@@ -1,11 +1,24 @@
 package edu.neu.coe.scala
 
+<<<<<<< HEAD
 import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.{LabeledPoint, LinearRegressionWithSGD}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.{Row, SQLContext}
+=======
+import java.io.File
+
+import co.theasi.plotly._
+import com.sun.jmx.snmp.Timestamp
+import org.apache.spark.mllib.evaluation.RegressionMetrics
+import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.mllib.regression.{LabeledPoint, LassoWithSGD, LinearRegressionWithSGD}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Row, SQLContext, SparkSession}
+import org.apache.spark.{SparkConf, SparkContext}
+>>>>>>> origin/master
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormat.{forPattern => formatFor}
 import org.joda.time.{DateTime, Days}
@@ -21,15 +34,25 @@ object Prediction {
     val filedir = dir.toList
 
     //The list of filedirs to train
+<<<<<<< HEAD
     val dir_list = filedir.take(filedir.length-1)
     //The filedir to test
     val test_dir = filedir.apply(filedir.length-1)
+=======
+    val dir_list = filedir.take(4)
+    //The filedir to test
+    val test_dir = filedir.apply(4)
+>>>>>>> origin/master
 
     //Readin the first file to file the dataframe, incase Null pointer error
     var df = sqlContext.read
       .format("com.databricks.spark.csv")
+<<<<<<< HEAD
       // Use first line of all files as header
       .option("header", "true")
+=======
+      .option("header", "true") // Use first line of all files as header
+>>>>>>> origin/master
       .option("inferSchema", "true")
       .load(filedir.apply(0))
 
@@ -37,8 +60,12 @@ object Prediction {
     for (x <- dir_list.drop(1)) {
       val df_temp = sqlContext.read
         .format("com.databricks.spark.csv")
+<<<<<<< HEAD
         // Use first line of all files as header
         .option("header", "true")
+=======
+        .option("header", "true") // Use first line of all files as header
+>>>>>>> origin/master
         .option("inferSchema", "true")
         .load(x)
       df = df union (df_temp)
@@ -47,8 +74,12 @@ object Prediction {
     //Readin test file
     var df_test = sqlContext.read
       .format("com.databricks.spark.csv")
+<<<<<<< HEAD
       // Use first line of all files as header
       .option("header", "true")
+=======
+      .option("header", "true") // Use first line of all files as header
+>>>>>>> origin/master
       .option("inferSchema", "true")
       .load(test_dir)
 
@@ -60,7 +91,10 @@ object Prediction {
 
     def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
 
+<<<<<<< HEAD
     //Format the date to String
+=======
+>>>>>>> origin/master
     val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
 
     def Datematch(date: Row): String = {
@@ -70,8 +104,14 @@ object Prediction {
         date.getString(0)
     }
 
+<<<<<<< HEAD
     //Parse training data
     val train_city = df.where(df("City Name") === city)
+=======
+
+    //Parse training data
+    val train_city = df.where(df("CBSA Name") === city)
+>>>>>>> origin/master
     val train_data_readin = train_city.select("Date Local", "Arithmetic Mean")
     //Error: Timestamp cannot be cast to string
     val pattern = "yyyy/MM/dd"
@@ -84,7 +124,11 @@ object Prediction {
     }.cache()
 
     //Parse the test data
+<<<<<<< HEAD
     val test_city = df_test.where(df_test("City Name") === city)
+=======
+    val test_city = df_test.where(df_test("CBSA Name") === city)
+>>>>>>> origin/master
     val test_data_readin = test_city.select("Date Local", "Arithmetic Mean")
     //Error: Timestamp cannot be cast to string
     val test_data_changeed: RDD[Row] = test_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)))))
@@ -96,7 +140,13 @@ object Prediction {
     }.cache()
 
     // Building the model
+<<<<<<< HEAD
     val model = LinearRegressionWithSGD.train(train_data, numIterations, stepSize)
+=======
+    val numIterations = 300
+    val stepSize = 0.000000722
+    val model = LassoWithSGD.train(train_data, numIterations, stepSize, 0.1)
+>>>>>>> origin/master
 
     // Evaluate model on training examples and compute training error
     val valuesAndPreds = test_data.map { point =>
@@ -109,6 +159,11 @@ object Prediction {
       prediction
     }
 
+<<<<<<< HEAD
+=======
+    //        predictionvalues.foreach(println)
+
+>>>>>>> origin/master
     //Show predictions
     valuesAndPreds.collect().toVector.foreach(println)
 
