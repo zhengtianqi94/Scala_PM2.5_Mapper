@@ -7,11 +7,7 @@ import java.io.File
 import co.theasi.plotly._
 import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.mllib.linalg.Vectors
-<<<<<<< HEAD
 import org.apache.spark.mllib.regression.{LabeledPoint, LassoWithSGD}
-=======
-import org.apache.spark.mllib.regression.{LabeledPoint, LassoWithSGD, LinearRegressionWithSGD}
->>>>>>> origin/master
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
@@ -214,10 +210,7 @@ object PMUI extends SimpleSwingApplication {
       }
 
       case ButtonClicked(Submit) => {
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/master
         // Declare the operation of the sqlContext which here is read
         val city = paneldropdown.city.item
 
@@ -260,7 +253,6 @@ object PMUI extends SimpleSwingApplication {
 
         def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
 
-<<<<<<< HEAD
         //Format the date to String
         val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
 
@@ -277,14 +269,6 @@ object PMUI extends SimpleSwingApplication {
         //Error: Timestamp cannot be cast to string
         val pattern = "yyyy/MM/dd"
         val train_data_changeed: RDD[Row] = train_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)))))
-=======
-        //Parse training data
-        val train_city = df.where(df("CBSA Name") === city)
-        val train_data_readin = train_city.select("Date Local", "Arithmetic Mean")
-        //Error: Timestamp cannot be cast to string
-        val pattern = "yyyy/MM/dd"
-        val train_data_changeed: RDD[Row] = train_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
->>>>>>> origin/master
         val train_data_prepared = train_data_changeed.map(x => x(0) + "," + x(1))
         //Generalize the data
         val train_data = train_data_prepared.map { line =>
@@ -293,17 +277,10 @@ object PMUI extends SimpleSwingApplication {
         }.cache()
 
         //Parse the test data
-<<<<<<< HEAD
         val test_city = df_test.where(df_test("City Name") === city)
         val test_data_readin = test_city.select("Date Local", "Arithmetic Mean")
         //Error: Timestamp cannot be cast to string
         val test_data_changeed: RDD[Row] = test_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)))))
-=======
-        val test_city = df_test.where(df_test("CBSA Name") === city)
-        val test_data_readin = test_city.select("Date Local", "Arithmetic Mean")
-        //Error: Timestamp cannot be cast to string
-        val test_data_changeed: RDD[Row] = test_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
->>>>>>> origin/master
         val test_data_prepared = test_data_changeed.map(x => x(0) + "," + x(1))
         //Generalize the data
         val test_data = test_data_prepared.map { line =>
@@ -321,7 +298,6 @@ object PMUI extends SimpleSwingApplication {
           val prediction = model.predict(point.features)
           (point.label, prediction)
         }
-<<<<<<< HEAD
 
         //Show predictions
         valuesAndPreds.collect().toVector.foreach(println)
@@ -341,34 +317,7 @@ object PMUI extends SimpleSwingApplication {
 
         // Explained variance
         println(s"Explained variance = ${metrics.explainedVariance}")
-=======
->>>>>>> origin/master
 
-        val predictionvalues = test_data.map{ point =>
-            val prediction = model.predict(point.features)
-            prediction
-        }
-
-//        predictionvalues.foreach(println)
-
-        //Show predictions
-        valuesAndPreds.collect().toVector.foreach(println)
-
-        //Initialize the test metrics object
-        val metrics = new RegressionMetrics(valuesAndPreds)
-
-        // Squared error
-        println(s"MSE = ${metrics.meanSquaredError}")
-        println(s"RMSE = ${metrics.rootMeanSquaredError}")
-
-        // R-squared
-        println(s"R-squared = ${metrics.r2}")
-
-        // Mean absolute error
-        println(s"MAE = ${metrics.meanAbsoluteError}")
-
-        // Explained variance
-        println(s"Explained variance = ${metrics.explainedVariance}")
       }
 
       case ButtonClicked(Draw) => {
