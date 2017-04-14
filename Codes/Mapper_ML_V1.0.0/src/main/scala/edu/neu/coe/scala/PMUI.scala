@@ -5,10 +5,12 @@ import java.awt.Dimension
 import java.io.File
 
 import co.theasi.plotly._
+import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.{LabeledPoint, LinearRegressionWithSGD}
+import org.apache.spark.mllib.regression.{LabeledPoint, LassoWithSGD}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Row, SQLContext, SparkSession}
+import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormat.{forPattern => formatFor}
@@ -123,7 +125,7 @@ object PMUI extends SimpleSwingApplication {
     title = "PM2.5 Mapper"
 
     // Configuration of a new Spark config file and set the starting memory to be used
-    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[1]").set("spark.executor.memory", "512m");
+    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[2]").set("spark.executor.memory", "512m");
 
     // Declare a new SparkContext
     val sc = new SparkContext(conf)
@@ -155,17 +157,17 @@ object PMUI extends SimpleSwingApplication {
     listenTo(Choose4)
     listenTo(Choose5)
 
+    //Get cities from the first file, filter out cities with name "not in a city"
     def getCity(path: String) = {
       val df = sqlContext.read
         .format("com.databricks.spark.csv")
         .option("header", "true") // Use first line of all files as header
         .option("inferSchema", "true") // Automatically infer data types
         .load(path)
-      val cities = df.select("CBSA Name")
+      val cities = df.select("City Name")
 
       //Error: Some CBSA name is null, make a function to get rid of null pointers
-      cities.rdd.distinct().foreach(row => cityList += row(0).toString)
-      //      cityList.foreach(println)
+      cities.filter(!(cities("City Name") === "Not in a city")).rdd.distinct().foreach(row => cityList += row(0).toString)
       repaint()
     }
 
@@ -208,29 +210,42 @@ object PMUI extends SimpleSwingApplication {
       }
 
       case ButtonClicked(Submit) => {
-        // Declare the operation of the sqlContext which here is read
 
+        // Declare the operation of the sqlContext which here is read
         val city = paneldropdown.city.item
 
         val filedir = dir.toList
 
+        //The list of filedirs to train
+        val dir_list = filedir.take(4)
+        //The filedir to test
+        val test_dir = filedir.apply(4)
+
+        //Readin the first file to file the dataframe, incase Null pointer error
         var df = sqlContext.read
           .format("com.databricks.spark.csv")
           .option("header", "true") // Use first line of all files as header
           .option("inferSchema", "true")
           .load(filedir.apply(0))
-        for (x <- filedir.drop(1)) {
+
+        //Append other training files to dataframe
+        for (x <- dir_list.drop(1)) {
           val df_temp = sqlContext.read
             .format("com.databricks.spark.csv")
             .option("header", "true") // Use first line of all files as header
             .option("inferSchema", "true")
             .load(x)
-          df = df union(df_temp)
+          df = df union (df_temp)
         }
-//        df.show()
 
+        //Readin test file
+        var df_test = sqlContext.read
+          .format("com.databricks.spark.csv")
+          .option("header", "true") // Use first line of all files as header
+          .option("inferSchema", "true")
+          .load(test_dir)
 
-
+        //Date parse function
         val now = DateTime.now
         val beginDate = (new DateTime).withYear(2011)
           .withMonthOfYear(1)
@@ -238,65 +253,88 @@ object PMUI extends SimpleSwingApplication {
 
         def daysTo(x: DateTime): Int = Days.daysBetween(beginDate, x).getDays + 1
 
-        //TODO form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
-        val selectedCity = df.where(df("CBSA Name") === city)
-        println(city)
+        //Format the date to String
+        val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
 
-        val selectedData = selectedCity.select("Date Local", "Arithmetic Mean")
+        def Datematch(date: Row): String = {
+          if (date.get(0).isInstanceOf[Timestamp])
+            format.format(date.get(0))
+          else
+            date.getString(0)
+        }
 
+        //Parse training data
+        val train_city = df.where(df("City Name") === city)
+        val train_data_readin = train_city.select("Date Local", "Arithmetic Mean")
         //Error: Timestamp cannot be cast to string
         val pattern = "yyyy/MM/dd"
-        val changedData: RDD[Row] = selectedData.rdd.map(row => Row(row(1), daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
-        //        changedData.collect.foreach(println)
-        val preparedData = changedData.map(x => x(0) + "," + x(1))
+        val train_data_changeed: RDD[Row] = train_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)))))
+        val train_data_prepared = train_data_changeed.map(x => x(0) + "," + x(1))
+        //Generalize the data
+        val train_data = train_data_prepared.map { line =>
+          val parts = line.toString().split(',')
+          LabeledPoint(parts(0).toDouble, Vectors.dense(parts(1).toDouble))
+        }.cache()
 
-        //  val rows: RDD[Row] = selectedData.rdd
-        //TODO this one should be implemented, and after that this RDD can be directly used as training data for macihne learning
-
-        // parse the data
-
-        val parsedData = preparedData.map { line =>
+        //Parse the test data
+        val test_city = df_test.where(df_test("City Name") === city)
+        val test_data_readin = test_city.select("Date Local", "Arithmetic Mean")
+        //Error: Timestamp cannot be cast to string
+        val test_data_changeed: RDD[Row] = test_data_readin.rdd.map(row => Row(row(1), daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)))))
+        val test_data_prepared = test_data_changeed.map(x => x(0) + "," + x(1))
+        //Generalize the data
+        val test_data = test_data_prepared.map { line =>
           val parts = line.toString().split(',')
           LabeledPoint(parts(0).toDouble, Vectors.dense(parts(1).toDouble))
         }.cache()
 
         // Building the model
         val numIterations = 300
-        val stepSize = 0.00000001
-        val model = LinearRegressionWithSGD.train(parsedData, numIterations, stepSize)
-
-        val dateD = selectedCity.select("Date Local")
-        val days: RDD[Row] = dateD.rdd.map(row => Row(daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
-        //        val Day_list = days.map(r => r(0).asInstanceOf[Double]).collect().toVector
-
-        //Convert RDD[Row] to RDD[Vector]
-        val prediction = model.predict(days.map { row => Vectors.dense(row.getAs[Integer](0).toDouble)})
-        prediction.take(20).foreach(println)
+        val stepSize = 0.000000722
+        val model = LassoWithSGD.train(train_data, numIterations, stepSize, 0.1)
 
         // Evaluate model on training examples and compute training error
-        val valuesAndPreds = parsedData.map { point =>
+        val valuesAndPreds = test_data.map { point =>
           val prediction = model.predict(point.features)
           (point.label, prediction)
         }
-        val MSE = valuesAndPreds.map { case (v, p) => math.pow((v - p), 2) }.mean()
-        println("training Mean Squared Error = " + MSE)
+
+        //Show predictions
+        valuesAndPreds.collect().toVector.foreach(println)
+
+        //Initialize the test metrics object
+        val metrics = new RegressionMetrics(valuesAndPreds)
+
+        // Squared error
+        println(s"MSE = ${metrics.meanSquaredError}")
+        println(s"RMSE = ${metrics.rootMeanSquaredError}")
+
+        // R-squared
+        println(s"R-squared = ${metrics.r2}")
+
+        // Mean absolute error
+        println(s"MAE = ${metrics.meanAbsoluteError}")
+
+        // Explained variance
+        println(s"Explained variance = ${metrics.explainedVariance}")
 
       }
 
       case ButtonClicked(Draw) => {
 
         val city = paneldropdown.city.item
-        println(city)
+
         //get the days
         val now = DateTime.now
-        val beginDate = (new DateTime).withYear(2011)
+
+        def beginDate(y: String) = (new DateTime).withYear(y.toInt)
           .withMonthOfYear(1)
           .withDayOfMonth(1)
 
-        def daysTo(x: DateTime): Double = Days.daysBetween(beginDate, x).getDays + 1
+        def daysTo(x: DateTime, y: String): Double = Days.daysBetween(beginDate(y), x).getDays + 1
 
         implicit val server = new writer.Server {
-          val credentials = writer.Credentials("zhengtqwanglx", "mwApPLKhhP5okOoQDGNb")
+          val credentials = writer.Credentials("zhengtqwanglx", "VYBwvhFPbylxxEVUuO86")
           val url = "https://api.plot.ly/v2/"
         }
 
@@ -310,60 +348,126 @@ object PMUI extends SimpleSwingApplication {
         // Declare the operation of the sqlContext which here is read
         val filedir = dir.toList
 
-        var df = sqlContext.read
+        val df: DataFrame = sqlContext.read
           .format("com.databricks.spark.csv")
-          .option("header", "true") // Use first line of all files as header
+          // Use first line of all files as header
+          .option("header", "true")
           .option("inferSchema", "true")
           .load(filedir.apply(0))
+        var dfSeq: Seq[(DataFrame)] = Seq(df)
         for (x <- filedir.drop(1)) {
           val df_temp = sqlContext.read
             .format("com.databricks.spark.csv")
-            .option("header", "true") // Use first line of all files as header
+            // Use first line of all files as header
+            .option("header", "true")
             .option("inferSchema", "true")
             .load(x)
-          df = df union(df_temp)
+          dfSeq = dfSeq :+ df_temp
         }
 
-        //        Latitude
-        //        Longitude
-        //        Date Local
-        //        Arithmetic Mean - RDD label
-        //        State Name
-        //        City Name
+        //Get all data of user choosen city
+        val selectedCity = dfSeq.map(x =>
+          x.where(x("City Name") === city)
+        )
 
-        // Select required fields from source datafile
-        val selectedCity = df.where(df("CBSA Name") === city)
-        //days and arithmeticMean
+        //Get data needed
+        val selectedData = selectedCity.map(x =>
+          x.select("Date Local", "Arithmetic Mean")
+        )
+
+        //Format the date to String
+        val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
+
+        def Datematch(date: Row): String = {
+          if (date.get(0).isInstanceOf[Timestamp])
+            format.format(date.get(0))
+          else
+            date.getString(0)
+        }
+
+        //Parse year
+        val selectedYear = selectedData.map(x =>
+          x.select("Date Local").rdd.map(row => Row(Datematch(row).substring(0, 4))).distinct()
+        )
+        selectedYear.foreach(println)
+        var year: String = selectedYear.apply(0).first().getString(0)
+        var years: ListBuffer[String] = ListBuffer(year)
+        for (x <- selectedYear.drop(1)) {
+          years = years :+ x.first().getString(0)
+        }
+
+        //Parse date
         val pattern = "yyyy/MM/dd"
-        val dateD = selectedCity.select("Date Local")
-        val arithmeticMean = selectedCity.select("Arithmetic Mean")
-        val days: RDD[Row] = dateD.rdd.map(row => Row(daysTo(DateTime.parse(row.getString(0), DateTimeFormat.forPattern(pattern)))))
-        days.collect.foreach(println)
-        arithmeticMean.rdd.collect.foreach(println)
+        def parseData(x: DataFrame, y: String): RDD[Row] = x.rdd.map(row => Row(daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)), y), row(1)))
 
-        //        val draw_with_data = df.select("Date Local", "Arithmetic Mean")
-        //
-        //        val Day = draw_with_data.select("Date Local")
-        //        val Concentration = draw_with_data.select("Arithmetic Mean")
+        val firstParse: RDD[Row] = parseData(selectedData.apply(0), years.apply(0));
+        var parsedData: Seq[RDD[Row]] = Seq(firstParse)
 
-        val Day_list = days.map(r => r(0).asInstanceOf[Double]).collect().toVector
-        val Concentration_list = arithmeticMean.rdd.map(r => r(0).asInstanceOf[Double]).collect().toVector
+        if (selectedData.size > 1) {
+          for (a <- 0 to selectedData.size - 2) {
+            parsedData = parsedData :+ parseData(selectedData.drop(1).apply(a), years.drop(1).apply(a))
+          }
+        }
 
-        val p = Plot().withScatter(Day_list, Concentration_list)
+        val days = parsedData.map(x =>
+          x.map(row => Row(row(0)))
+        )
+        val arithmeticMean = parsedData.map(x =>
+          x.map(row => Row(row(1)))
+        )
 
-        val figure = Figure()
-          .plot(p)
-          .margins(0, 0, 0, 0)
+        val Day_list = days.map(x =>
+          x.map(r => r(0).asInstanceOf[Double]).collect().toVector
+        )
+        val Concentration_list = arithmeticMean.map(x =>
+          x.map(r => r(0).asInstanceOf[Double]).collect().toVector
+        )
+        // Options common to both traces
+        val commonOptions = ScatterOptions()
+          .mode(ScatterMode.Marker)
+          .name(city)
+          .text(city)
+          .marker(MarkerOptions().size(12).lineWidth(1))
 
-        //the output file location, the parameter is filename which can be specified by user
-        val outputFile = draw(figure, "custom-credentials", writer.FileOptions(overwrite = true))
+        // Options common to both axis
+        val commonAxisOptions = AxisOptions()
+          .withTickLabels
 
-        println("Finished!")
+        //Options common to legend
+        val commonLegendOptions = LegendOptions()
+          .x(1.02)
+          .y(1)
+          .fontSize(12)
+          .xAnchor(XAnchor.Left)
+          .yAnchor(YAnchor.Top)
 
-        //TODO here we need to form a RDD with label Arithmetic Mean, and characters: Latitude, Longitude, Date Local
-        //TODO this one should be implemented, and after that this RDD can be directly used as training data for macihne learning
-        //Test
+        //Options to each axis
+        val xAxisOptions = commonAxisOptions.title("Day")
+        val yAxisOptions = commonAxisOptions.title("PM 2.5 Concentration")
 
+        //Draw graph by year
+        for (a <- 0 to Day_list.length - 1) {
+
+          //Definie plot options
+          val p = Plot().withScatter(Day_list.apply(a), Concentration_list.apply(a), commonOptions)
+            .xAxisOptions(xAxisOptions)
+            .yAxisOptions(yAxisOptions)
+
+          /*
+          Define figure options, with a API error of legend, there is something wrong for legned API that cannot set "ShowLegend" option to true
+          so that legend cannot be displayed
+          */
+          val figure = Figure()
+            .legend(commonLegendOptions)
+            .plot(p)
+            .title("PM 2.5 of " + years.apply(a) + " in " + city)
+
+          //the output file is stored in user's file directory with serialized names
+          val outputFile = draw(figure, "PM 2.5 of " + years.apply(a) + " in " + city)
+
+          println("Draw graph for year " + years.apply(a) + " Finished")
+
+        }
       }
     }
   }
