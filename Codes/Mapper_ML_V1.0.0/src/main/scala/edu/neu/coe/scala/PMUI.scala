@@ -10,7 +10,6 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.joda.time.format.DateTimeFormat
-import org.joda.time.format.DateTimeFormat.{forPattern => formatFor}
 import org.joda.time.{DateTime, Days}
 
 import scala.collection.mutable.ListBuffer
@@ -163,7 +162,6 @@ object PMUI extends SimpleSwingApplication {
         .load(path)
       val cities = df.select("City Name")
 
-      //Error: Some CBSA name is null, make a function to get rid of null pointers
       cities.filter(!(cities("City Name") === "Not in a city")).rdd.distinct().foreach(row => cityList += row(0).toString)
       repaint()
     }
