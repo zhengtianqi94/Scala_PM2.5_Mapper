@@ -24,12 +24,12 @@ object PMUI extends SimpleSwingApplication {
 
   var cityList = new ListBuffer[String]()
 
-  val Submit = new Button {
-    text = "Submit"
-  }
+  //Variance to store Ploty Username and UserAPIKey
+  var Username = new String
+  var APIKey = new String
 
   val Draw = new Button {
-    text = "Draw"
+    text = "Analyze and Print Graph"
   }
 
   val label1 = new Label {
@@ -48,8 +48,11 @@ object PMUI extends SimpleSwingApplication {
     maximumSize = new Dimension(200, 30)
   }
 
-  val textf3 = new TextField() {
-    maximumSize = new Dimension(200, 30)
+  val textArea = new TextArea() {
+    append("Logs\n")
+    rows = 5
+    columns = 20
+    editable = false
   }
 
   val panel1 = new GridPanel(1, 2) {
@@ -67,6 +70,20 @@ object PMUI extends SimpleSwingApplication {
   val paneldropdown = new GridPanel(1, 2) {
     val city = new ComboBox(cityList)
     contents += city
+  }
+
+  val drawpanel = new GridPanel(1, 2) {
+    contents += Draw
+    maximumSize = new Dimension(300, 30)
+  }
+
+  val ScrollPanel = new ScrollPane(textArea) {
+    verticalScrollBarPolicy = ScrollPane.BarPolicy.Always
+  }
+
+  val paneltextArea = new GridPanel(1,2){
+    contents += ScrollPanel
+    maximumSize = new Dimension(300, 30)
   }
 
   var fileChooser = new FileChooser(new File("."))
@@ -93,7 +110,6 @@ object PMUI extends SimpleSwingApplication {
     text = "Please choose source data file"
   }
 
-
   val panel5 = new FlowPanel {
     contents += Choose1
     maximumSize = new Dimension(300, 30)
@@ -118,10 +134,10 @@ object PMUI extends SimpleSwingApplication {
   // This is the main function, which replaces the main(Args[String]) function with MainFrame
   def top = new MainFrame {
 
-    title = "PM2.5 Mapper"
+    title = "PM 2.5 Mapper"
 
     // Configuration of a new Spark config file and set the starting memory to be used
-    val conf = new SparkConf().setAppName("PM2.5 Mapper").setMaster("local[2]").set("spark.executor.memory", "512m");
+    val conf = new SparkConf().setAppName("PM 2.5 Mapper").setMaster("local[2]").set("spark.executor.memory", "512m");
 
     // Declare a new SparkContext
     val sc = new SparkContext(conf)
@@ -138,20 +154,21 @@ object PMUI extends SimpleSwingApplication {
       contents += panel7
       contents += panel8
       contents += panel9
-      contents += Submit
-      contents += Draw
+      contents += drawpanel
+      contents += paneltextArea
       border = Swing.EmptyBorder(20, 20, 20, 20)
     }
 
-    size = new Dimension(400, 400)
+    size = new Dimension(400, 500)
 
-    listenTo(Submit)
     listenTo(Draw)
     listenTo(Choose1)
     listenTo(Choose2)
     listenTo(Choose3)
     listenTo(Choose4)
     listenTo(Choose5)
+    listenTo(textf1)
+    listenTo(textf2)
 
     //Get cities from the first file, filter out cities with name "not in a city"
     def getCity(path: String) = {
@@ -171,214 +188,257 @@ object PMUI extends SimpleSwingApplication {
         val result = fileChooser.showOpenDialog(panel5);
         if (result == FileChooser.Result.Approve) {
           Choose1.text = fileChooser.selectedFile.getPath;
-          dir.+=(fileChooser.selectedFile.getPath);
+          if (dir.length == 0) {
+            getCity(fileChooser.selectedFile.getPath)
+            textArea.append("Cities add to list.\n")
+            dir.+=(fileChooser.selectedFile.getPath);
+          } else {
+            dir.+=(fileChooser.selectedFile.getPath);
+          }
         }
-        getCity(fileChooser.selectedFile.getPath)
       }
       case ButtonClicked(Choose2) => {
         val result = fileChooser.showOpenDialog(panel6);
         if (result == FileChooser.Result.Approve) {
           Choose2.text = fileChooser.selectedFile.getPath;
-          dir.+=(fileChooser.selectedFile.getPath);
+          if (dir.length == 0) {
+            getCity(fileChooser.selectedFile.getPath)
+            textArea.append("Cities add to list.\n")
+            dir.+=(fileChooser.selectedFile.getPath);
+          } else {
+            dir.+=(fileChooser.selectedFile.getPath);
+          }
         }
       }
       case ButtonClicked(Choose3) => {
         val result = fileChooser.showOpenDialog(panel7);
         if (result == FileChooser.Result.Approve) {
           Choose3.text = fileChooser.selectedFile.getPath;
-          dir.+=(fileChooser.selectedFile.getPath);
+          if (dir.length == 0) {
+            getCity(fileChooser.selectedFile.getPath)
+            textArea.append("Cities add to list.\n")
+            dir.+=(fileChooser.selectedFile.getPath);
+          } else {
+            dir.+=(fileChooser.selectedFile.getPath);
+          }
         }
       }
       case ButtonClicked(Choose4) => {
         val result = fileChooser.showOpenDialog(panel8);
         if (result == FileChooser.Result.Approve) {
           Choose4.text = fileChooser.selectedFile.getPath;
-          dir.+=(fileChooser.selectedFile.getPath);
+          if (dir.length == 0) {
+            getCity(fileChooser.selectedFile.getPath)
+            textArea.append("Cities add to list.\n")
+            dir.+=(fileChooser.selectedFile.getPath);
+          } else {
+            dir.+=(fileChooser.selectedFile.getPath);
+          }
         }
       }
       case ButtonClicked(Choose5) => {
         val result = fileChooser.showOpenDialog(panel9);
         if (result == FileChooser.Result.Approve) {
           Choose5.text = fileChooser.selectedFile.getPath;
-          dir.+=(fileChooser.selectedFile.getPath);
+          if (dir.length == 0) {
+            getCity(fileChooser.selectedFile.getPath)
+            textArea.append("Cities add to list.\n")
+            dir.+=(fileChooser.selectedFile.getPath);
+          } else {
+            dir.+=(fileChooser.selectedFile.getPath);
+          }
         }
       }
 
       case ButtonClicked(Draw) => {
 
-        val city = paneldropdown.city.item
+        if (dir.length < 2) {
+          Dialog.showMessage(null, "We need at least two files for analyze!")
+        } else if (textf1.text == "") {
+          Dialog.showMessage(null, "We need your Ploty username to give output graphs!")
+        } else if (textf2.text == "") {
+          Dialog.showMessage(null, "We need your Ploty API Key to give output graphs!")
+        } else {
 
-        val prediction = Prediction.apply(city, dir, 300, 0.000000722, sqlContext)
+          Username = textf1.text
+          APIKey = textf2.text
 
-        //get the days
-        val now = DateTime.now
+          val city = paneldropdown.city.item
 
-        def beginDate(y: String) = (new DateTime).withYear(y.toInt)
-          .withMonthOfYear(1)
-          .withDayOfMonth(1)
+          val prediction = Prediction.apply(city, dir, 300, 0.000000722, sqlContext)
+          textArea.append("Data analyze finished.\n")
 
-        def daysTo(x: DateTime, y: String): Double = Days.daysBetween(beginDate(y), x).getDays + 1
+          //get the days
+          val now = DateTime.now
 
-        implicit val server = new writer.Server {
-          val credentials = writer.Credentials("zhengtqwanglx", "VYBwvhFPbylxxEVUuO86")
-          val url = "https://api.plot.ly/v2/"
-        }
+          def beginDate(y: String) = (new DateTime).withYear(y.toInt)
+            .withMonthOfYear(1)
+            .withDayOfMonth(1)
 
-        // Create a sparksession for further use
-        val spark = SparkSession
-          .builder()
-          .appName("Spark SQL basic example")
-          .config("spark.some.config.option", "some-value")
-          .getOrCreate()
+          def daysTo(x: DateTime, y: String): Double = Days.daysBetween(beginDate(y), x).getDays + 1
 
-        // Declare the operation of the sqlContext which here is read
-        val filedir = dir.toList
+          implicit val server = new writer.Server {
+            val credentials = writer.Credentials(Username, APIKey)
+            val url = "https://api.plot.ly/v2/"
+          }
 
-        val df: DataFrame = sqlContext.read
-          .format("com.databricks.spark.csv")
-          // Use first line of all files as header
-          .option("header", "true")
-          .option("inferSchema", "true")
-          .load(filedir.apply(0))
-        var dfSeq: Seq[(DataFrame)] = Seq(df)
-        for (x <- filedir.drop(1)) {
-          val df_temp = sqlContext.read
+          // Create a sparksession for further use
+          val spark = SparkSession
+            .builder()
+            .appName("Spark SQL basic example")
+            .config("spark.some.config.option", "some-value")
+            .getOrCreate()
+
+          // Declare the operation of the sqlContext which here is read
+          val filedir = dir.toList
+
+          val df: DataFrame = sqlContext.read
             .format("com.databricks.spark.csv")
             // Use first line of all files as header
             .option("header", "true")
             .option("inferSchema", "true")
-            .load(x)
-          dfSeq = dfSeq :+ df_temp
-        }
-
-        //Get all data of user choosen city
-        val selectedCity = dfSeq.map(x =>
-          x.where(x("City Name") === city)
-        )
-
-        //Get data needed
-        val selectedData = selectedCity.map(x =>
-          x.select("Date Local", "Arithmetic Mean")
-        )
-
-        //Format the date to String
-        val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
-
-        def Datematch(date: Row): String = {
-          if (date.get(0).isInstanceOf[Timestamp])
-            format.format(date.get(0))
-          else
-            date.getString(0)
-        }
-
-        //Parse year
-        val selectedYear = selectedData.map(x =>
-          x.select("Date Local").rdd.map(row => Row(Datematch(row).substring(0, 4))).distinct()
-        )
-        selectedYear.foreach(println)
-        var year: String = selectedYear.apply(0).first().getString(0)
-        var years: ListBuffer[String] = ListBuffer(year)
-        for (x <- selectedYear.drop(1)) {
-          years = years :+ x.first().getString(0)
-        }
-
-        //Parse date
-        val pattern = "yyyy/MM/dd"
-
-        def parseData(x: DataFrame, y: String): RDD[Row] = x.rdd.map(row => Row(daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)), y), row(1)))
-
-        val firstParse: RDD[Row] = parseData(selectedData.apply(0), years.apply(0));
-        var parsedData: Seq[RDD[Row]] = Seq(firstParse)
-
-        if (selectedData.size > 1) {
-          for (a <- 0 to selectedData.size - 2) {
-            parsedData = parsedData :+ parseData(selectedData.drop(1).apply(a), years.drop(1).apply(a))
+            .load(filedir.apply(0))
+          var dfSeq: Seq[(DataFrame)] = Seq(df)
+          for (x <- filedir.drop(1)) {
+            val df_temp = sqlContext.read
+              .format("com.databricks.spark.csv")
+              // Use first line of all files as header
+              .option("header", "true")
+              .option("inferSchema", "true")
+              .load(x)
+            dfSeq = dfSeq :+ df_temp
           }
-        }
 
-        val days = parsedData.map(x =>
-          x.map(row => Row(row(0)))
-        )
-        val arithmeticMean = parsedData.map(x =>
-          x.map(row => Row(row(1)))
-        )
+          //Get all data of user choosen city
+          val selectedCity = dfSeq.map(x =>
+            x.where(x("City Name") === city)
+          )
 
-        val Day_list = days.map(x =>
-          x.map(r => r(0).asInstanceOf[Double]).collect().toVector
-        )
-        val Concentration_list = arithmeticMean.map(x =>
-          x.map(r => r(0).asInstanceOf[Double]).collect().toVector
-        )
-        val predicted = prediction.collect().toVector
+          //Get data needed
+          val selectedData = selectedCity.map(x =>
+            x.select("Date Local", "Arithmetic Mean")
+          )
 
-        // Options common to both traces
-        val commonOptions = ScatterOptions()
-          .mode(ScatterMode.Marker)
-          .name("Actual PM 2.5 Concentration in " + city)
-          .marker(MarkerOptions().size(12).lineWidth(1))
+          //Format the date to String
+          val format = new java.text.SimpleDateFormat("yyyy/MM/dd")
 
-        // Options common to both axis
-        val commonAxisOptions = AxisOptions()
-          .withTickLabels
+          def Datematch(date: Row): String = {
+            if (date.get(0).isInstanceOf[Timestamp])
+              format.format(date.get(0))
+            else
+              date.getString(0)
+          }
 
-        //Options common to legend
-        val commonLegendOptions = LegendOptions()
-          .x(1.02)
-          .y(1)
-          .fontSize(12)
-          .xAnchor(XAnchor.Left)
-          .yAnchor(YAnchor.Top)
+          //Parse year
+          val selectedYear = selectedData.map(x =>
+            x.select("Date Local").rdd.map(row => Row(Datematch(row).substring(0, 4))).distinct()
+          )
+          selectedYear.foreach(println)
+          var year: String = selectedYear.apply(0).first().getString(0)
+          var years: ListBuffer[String] = ListBuffer(year)
+          for (x <- selectedYear.drop(1)) {
+            years = years :+ x.first().getString(0)
+          }
 
-        //Options to each axis
-        val xAxisOptions = commonAxisOptions.title("Day")
-        val yAxisOptions = commonAxisOptions.title("PM 2.5 Concentration")
+          //Parse date
+          val pattern = "yyyy/MM/dd"
 
-        //Draw graph by year
-        for (a <- 0 to Day_list.length - 2) {
+          def parseData(x: DataFrame, y: String): RDD[Row] = x.rdd.map(row => Row(daysTo(DateTime.parse(Datematch(row), DateTimeFormat.forPattern(pattern)), y), row(1)))
 
-          //Define plot options
-          val p = Plot().withScatter(Day_list.apply(a), Concentration_list.apply(a), commonOptions)
+          val firstParse: RDD[Row] = parseData(selectedData.apply(0), years.apply(0));
+          var parsedData: Seq[RDD[Row]] = Seq(firstParse)
+
+          if (selectedData.size > 1) {
+            for (a <- 0 to selectedData.size - 2) {
+              parsedData = parsedData :+ parseData(selectedData.drop(1).apply(a), years.drop(1).apply(a))
+            }
+          }
+
+          val days = parsedData.map(x =>
+            x.map(row => Row(row(0)))
+          )
+          val arithmeticMean = parsedData.map(x =>
+            x.map(row => Row(row(1)))
+          )
+
+          val Day_list = days.map(x =>
+            x.map(r => r(0).asInstanceOf[Double]).collect().toVector
+          )
+          val Concentration_list = arithmeticMean.map(x =>
+            x.map(r => r(0).asInstanceOf[Double]).collect().toVector
+          )
+          val predicted = prediction.collect().toVector
+
+          // Options common to both traces
+          val commonOptions = ScatterOptions()
+            .mode(ScatterMode.Marker)
+            .name("Actual PM 2.5 Concentration in " + city)
+            .marker(MarkerOptions().size(12).lineWidth(1))
+
+          // Options common to both axis
+          val commonAxisOptions = AxisOptions()
+            .withTickLabels
+
+          //Options common to legend
+          val commonLegendOptions = LegendOptions()
+            .x(1.02)
+            .y(1)
+            .fontSize(12)
+            .xAnchor(XAnchor.Left)
+            .yAnchor(YAnchor.Top)
+
+          //Options to each axis
+          val xAxisOptions = commonAxisOptions.title("Day")
+          val yAxisOptions = commonAxisOptions.title("PM 2.5 Concentration")
+
+          //Draw graph by year
+          for (a <- 0 to Day_list.length - 2) {
+
+            //Define plot options
+            val p = Plot().withScatter(Day_list.apply(a), Concentration_list.apply(a), commonOptions)
+              .xAxisOptions(xAxisOptions)
+              .yAxisOptions(yAxisOptions)
+
+            /*
+          Define figure options, with a API error of legend, there is something wrong for legned API that cannot set "ShowLegend" option to true
+          so that legend cannot be displayed
+          */
+            val figure = Figure()
+              .legend(commonLegendOptions)
+              .plot(p)
+              .title("PM 2.5 of " + years.apply(a) + " in " + city)
+
+            //the output file is stored in user's file directory with serialized names
+            val outputFile = draw(figure, "PM 2.5 of " + years.apply(a) + " in " + city)
+
+            textArea.append("Draw graph for year " + years.apply(a) + " Finished.\n")
+            println("Draw graph for year " + years.apply(a) + " Finished")
+          }
+
+          //Define plot options of last year, together with predicted line
+          val p = Plot().withScatter(Day_list.apply(Day_list.length - 1), Concentration_list.apply(Day_list.length - 1), commonOptions)
+            .withScatter(Day_list.apply(Day_list.length - 1), predicted, ScatterOptions()
+              .mode(ScatterMode.Line)
+              .name("Prediction Line")
+              .marker(MarkerOptions().size(12).lineWidth(1)))
             .xAxisOptions(xAxisOptions)
             .yAxisOptions(yAxisOptions)
 
           /*
-          Define figure options, with a API error of legend, there is something wrong for legned API that cannot set "ShowLegend" option to true
-          so that legend cannot be displayed
-          */
-          val figure = Figure()
-            .legend(commonLegendOptions)
-            .plot(p)
-            .title("PM 2.5 of " + years.apply(a) + " in " + city)
-
-          //the output file is stored in user's file directory with serialized names
-          val outputFile = draw(figure, "PM 2.5 of " + years.apply(a) + " in " + city)
-
-          println("Draw graph for year " + years.apply(a) + " Finished")
-        }
-
-        //Define plot options of last year, together with predicted line
-        val p = Plot().withScatter(Day_list.apply(Day_list.length - 1), Concentration_list.apply(Day_list.length - 1), commonOptions)
-          .withScatter(Day_list.apply(Day_list.length - 1), predicted, ScatterOptions()
-            .mode(ScatterMode.Line)
-            .name("Prediction Line")
-            .marker(MarkerOptions().size(12).lineWidth(1)))
-          .xAxisOptions(xAxisOptions)
-          .yAxisOptions(yAxisOptions)
-
-        /*
         Define figure options, with a API error of legend, there is something wrong for legned API that cannot set "ShowLegend" option to true
         so that legend cannot be displayed
         */
-        val figure = Figure()
-          .legend(commonLegendOptions)
-          .plot(p)
-          .title("PM 2.5 of " + years.apply(Day_list.length - 1) + " in " + city)
+          val figure = Figure()
+            .legend(commonLegendOptions)
+            .plot(p)
+            .title("PM 2.5 of " + years.apply(Day_list.length - 1) + " in " + city)
 
-        //the output file is stored in user's file directory with serialized names
-        val outputFile = draw(figure, "PM 2.5 of " + years.apply(Day_list.length - 1) + " in " + city)
+          //the output file is stored in user's file directory with serialized names
+          val outputFile = draw(figure, "PM 2.5 of " + years.apply(Day_list.length - 1) + " in " + city)
 
-        println("Draw graph for year " + years.apply(Day_list.length - 1) + " Finished")
-
+          textArea.append("Draw graph for year " + years.apply(Day_list.length - 1) + " Finished.\n")
+          println("Draw graph for year " + years.apply(Day_list.length - 1) + " Finished")
+        }
       }
     }
   }
