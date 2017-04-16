@@ -32,6 +32,11 @@ object PMUI extends SimpleSwingApplication {
     text = "Analyze and Print Graph"
   }
 
+  //Button for model test
+  val Model = new Button {
+    text = "Model Test"
+  }
+
   val label1 = new Label {
     text = "Ploty Username"
   }
@@ -77,11 +82,17 @@ object PMUI extends SimpleSwingApplication {
     maximumSize = new Dimension(300, 30)
   }
 
+  //Button for model test
+  val modelpanel = new GridPanel(1, 2) {
+    contents += Model
+    maximumSize = new Dimension(300, 30)
+  }
+
   val ScrollPanel = new ScrollPane(textArea) {
     verticalScrollBarPolicy = ScrollPane.BarPolicy.Always
   }
 
-  val paneltextArea = new GridPanel(1,2){
+  val paneltextArea = new GridPanel(1, 2) {
     contents += ScrollPanel
     maximumSize = new Dimension(300, 30)
   }
@@ -155,6 +166,7 @@ object PMUI extends SimpleSwingApplication {
       contents += panel8
       contents += panel9
       contents += drawpanel
+      //      contents += modelpanel
       contents += paneltextArea
       border = Swing.EmptyBorder(20, 20, 20, 20)
     }
@@ -162,6 +174,7 @@ object PMUI extends SimpleSwingApplication {
     size = new Dimension(400, 500)
 
     listenTo(Draw)
+    //    listenTo(Model)
     listenTo(Choose1)
     listenTo(Choose2)
     listenTo(Choose3)
@@ -248,6 +261,16 @@ object PMUI extends SimpleSwingApplication {
             dir.+=(fileChooser.selectedFile.getPath);
           }
         }
+      }
+
+      case ButtonClicked(Model) => {
+        val city = paneldropdown.city.item
+        val prediction = Prediction.apply(city, dir, 300, 0.00000072, sqlContext)
+        println("RMSE: " + Prediction.getrootMeanSquaredError())
+        println("Explained variance: " + Prediction.getexplainedVariance())
+        println("MAE: " + Prediction.getmeanAbsoluteError())
+        println("MSE: " + Prediction.getmeanSquaredError())
+        println("R-Squared: " + Prediction.getr2())
       }
 
       case ButtonClicked(Draw) => {
