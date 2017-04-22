@@ -1,0 +1,6 @@
+#Source data specification
+
+The data you give to Mapper to analyze should at least include three columns:
+(1)City Name:String
+(2)Arithmatical Mean:Double
+(3)Date Local:String or TimeStamp
