@@ -1,5 +1,0 @@
-[0m[[0minfo[0m] [0m[32mPredictionSpec:[0m[0m
-[0m[[0minfo[0m] [0m[32mPrediction with iteration time: 300, step size: 0.00000072, city selected to be 'San Antonio'[0m[0m
-[0m[[0minfo[0m] [0m[32m- should Work for test source file of 2011[0m[0m
-[0m[[0minfo[0m] [0m[32m- should The regression model satisfies RMSE less than 20 with 1 test file[0m[0m
-[0m[[0minfo[0m] [0m[32m- should The regression model satisfies RMSE less than 10 with 5 test file[0m[0m
